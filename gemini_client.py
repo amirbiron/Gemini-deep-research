@@ -240,14 +240,21 @@ def strip_sources_section(text: str) -> str:
     חותך כל מה שמופיע אחרי כותרת 'Sources' (או מקבילה בעברית/אנגלית) בסוף הדו"ח.
     שומר רק את גוף המחקר — בלי רשימת המקורות.
 
+    מאתר את ההופעה ה*אחרונה* של הכותרת (rightmost match), כי הדו"ח
+    יכול להזכיר 'References' באמצע (למשל "References Used in Section 2")
+    בלי שזו רשימת המקורות הסופית. הסעיף שאנחנו רוצים לחתוך הוא תמיד
+    בסוף, אחרי הניתוח עצמו.
+
     החל רק על דו"ח סופי. אסור להחיל על תוכנית, כי תוכניות עשויות
     להכיל בלגיטימיות סעיף 'Sources to consult'.
     """
     if not text:
         return text
-    match = _SOURCES_HEADER_RE.search("\n" + text)
-    if match:
-        cut = max(match.start() - 1, 0)
+    last_match = None
+    for m in _SOURCES_HEADER_RE.finditer("\n" + text):
+        last_match = m
+    if last_match:
+        cut = max(last_match.start() - 1, 0)
         return text[:cut].rstrip()
     return text
 
