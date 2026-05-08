@@ -1,0 +1,36 @@
+# Render Blueprint — deep-research-bot
+# שירות יחיד: web service שמטפל ב-webhook של טלגרם וגם מגיש HTML.
+# ה-polling רץ באותו תהליך דרך asyncio.create_task (ב-BackgroundTasks).
+
+services:
+  - type: web
+    name: deep-research-bot
+    runtime: python
+    region: frankfurt  # שנה אם צריך
+    plan: starter      # שנה ל-free אם רוצים, אבל יש sleep בחינמי
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+
+      # ----- סודות שצריך להגדיר ידנית בדשבורד של Render -----
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false        # ייצור בעצמך מחרוזת אקראית
+
+      # ----- BASE_URL = ה-URL של השירות הזה ב-Render -----
+      # שיטה אוטומטית: Render מספק RENDER_EXTERNAL_URL, אבל לא תומך
+      # ב-${VAR} בתוך value, אז עדיף להגדיר ידנית בדשבורד אחרי הפריסה
+      # הראשונה (משהו כמו https://deep-research-bot.onrender.com).
+      - key: BASE_URL
+        sync: false
