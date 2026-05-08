@@ -210,26 +210,67 @@ async def check_status(interaction_id: str) -> dict[str, Any]:
 
 
 # ----- חילוץ טקסט מהפלט -----
+def _text_from_content_list(content_list: Any) -> str:
+    """מאחד את כל בלוקי ה-text מתוך רשימת content."""
+    parts = []
+    for item in content_list or []:
+        item_type = getattr(item, "type", None)
+        if item_type is None and isinstance(item, dict):
+            item_type = item.get("type")
+        if item_type != "text":
+            continue
+        text = getattr(item, "text", None)
+        if text is None and isinstance(item, dict):
+            text = item.get("text", "")
+        if text:
+            parts.append(text)
+    return "\n\n".join(parts).strip()
+
+
 def _extract_output_text(interaction: Any) -> str:
     """
     מחלץ את הטקסט הסופי מ-interaction שהושלם.
-    לפי הדוקומנטציה: interaction.steps[-1].content[0].text.
 
-    אנחנו עוברים על כל ה-content blocks ומאחדים את כל הטקסטים,
-    כדי להיות עמידים למקרה שיש כמה blocks (text + image).
-    תמונות מתעלמים מהן בגרסה הזו (אפשר להוסיף תמיכה בעתיד).
+    סדר העדיפויות:
+    1. interaction.outputs — ה-API הרשמי לפלט הסופי (Interactions API).
+    2. איחוד של כל ה-steps (לא רק האחרון) — fallback למקרה שאין outputs.
+       חשוב לאחד את כולם, כי הצעד האחרון לרוב מכיל רק את רשימת המקורות,
+       בעוד שגוף הדו"ח עצמו יושב בצעדים מוקדמים יותר.
     """
     try:
-        last_step = interaction.steps[-1]
-        text_parts = []
-        for content_item in last_step.content:
-            # תמיכה הן ב-attribute access והן ב-dict access
-            item_type = getattr(content_item, "type", None) or content_item.get("type")
-            if item_type == "text":
-                text = getattr(content_item, "text", None) or content_item.get("text", "")
+        # 1. הדרך המועדפת: outputs
+        outputs = getattr(interaction, "outputs", None)
+        if outputs:
+            text_parts = []
+            for output in outputs:
+                # outputs[i].text או outputs[i].content[].text
+                direct_text = getattr(output, "text", None)
+                if direct_text:
+                    text_parts.append(direct_text)
+                    continue
+                content = getattr(output, "content", None)
+                if content:
+                    combined = _text_from_content_list(content)
+                    if combined:
+                        text_parts.append(combined)
+            joined = "\n\n".join(p for p in text_parts if p).strip()
+            if joined:
+                return joined
+
+        # 2. fallback: איחוד כל הצעדים
+        steps = getattr(interaction, "steps", None) or []
+        all_parts = []
+        for step in steps:
+            content = getattr(step, "content", None)
+            if content:
+                text = _text_from_content_list(content)
                 if text:
-                    text_parts.append(text)
-        return "\n\n".join(text_parts).strip()
+                    all_parts.append(text)
+        joined = "\n\n".join(all_parts).strip()
+        if joined:
+            return joined
+
+        return "[הדו\"ח הסתיים אך לא נמצא טקסט פלט]"
     except (AttributeError, IndexError, KeyError, TypeError) as e:
         return f"[שגיאה בחילוץ טקסט: {e}]"
 
