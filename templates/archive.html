@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ארכיון מחקרים</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Heebo', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+    <header class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">📚 ארכיון מחקרים</h1>
+        <p class="text-gray-600">{{ items|length }} מחקרים</p>
+    </header>
+
+    {% if items %}
+    <div class="space-y-3">
+        {% for item in items %}
+        <a href="/r/{{ item.id }}" class="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-5 border border-gray-100">
+            <h2 class="text-lg font-semibold text-gray-900 mb-2 hover:text-blue-600">
+                {{ item.title }}
+            </h2>
+            {% if item.query %}
+            <p class="text-sm text-gray-600 mb-2 line-clamp-2">
+                <span class="font-medium">שאלה:</span> {{ item.query }}
+            </p>
+            {% endif %}
+            {% if item.created_at %}
+            <p class="text-xs text-gray-400">
+                {{ item.created_at.strftime("%d/%m/%Y %H:%M") }}
+            </p>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow-sm p-12 text-center">
+        <p class="text-gray-500">עדיין אין מחקרים. שלח שאלה לבוט בטלגרם כדי להתחיל!</p>
+    </div>
+    {% endif %}
+
+    <footer class="mt-8 text-center text-xs text-gray-400">
+        Deep Research Bot
+    </footer>
+</div>
+
+</body>
+</html>
