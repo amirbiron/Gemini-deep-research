@@ -182,7 +182,10 @@ async def watch_task(bot: Bot, task_id: str) -> None:
             return
 
         if phase == db.PHASE_RESEARCHING:
-            # הדו"ח מוכן
+            # הדו"ח מוכן — חותכים את רשימת המקורות הסופית.
+            # חשוב להחיל את הסינון רק כאן ולא בפאזת התכנון, כי תוכניות
+            # עשויות להכיל בלגיטימיות סעיף "Sources to consult".
+            output_text = gemini_client.strip_sources_section(output_text)
             title = gemini_client.extract_title(output_text)
             await db.save_completed(task_id, output_text, title)
             await _send_report_link(bot, chat_id, task_id, title)
