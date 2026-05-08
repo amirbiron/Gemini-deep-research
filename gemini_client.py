@@ -21,6 +21,21 @@ from google import genai
 # ----- הגדרות -----
 AGENT_NAME = "deep-research-preview-04-2026"
 
+# הוראת שפה — מתווספת לכל קלט כדי שגם התוכנית וגם הדו"ח יחזרו בעברית.
+# מוגדרת באנגלית כי זה הכי אמין מול המודל, אבל מבקשת פלט בעברית.
+LANGUAGE_INSTRUCTION = (
+    "Please respond entirely in Hebrew (עברית). "
+    "Both the research plan and the final report must be written in Hebrew. "
+    "Keep proper nouns, brand names, code, and direct quotes from English "
+    "sources in their original form."
+)
+
+
+def _with_language(text: str) -> str:
+    """מוסיף הוראת שפה לכל קלט שיוצא ל-Gemini."""
+    return f"{LANGUAGE_INSTRUCTION}\n\n---\n\n{text}"
+
+
 # קונפיגורציית הסוכן — משותפת לכל הקריאות.
 # collaborative_planning משתנה לפי השלב (תכנון/הרצה).
 _BASE_AGENT_CONFIG = {
@@ -63,7 +78,7 @@ def _sync_create_planning(query: str) -> str:
     """פותח interaction חדש לתכנון (collaborative_planning=True)."""
     interaction = _get_client().interactions.create(
         agent=AGENT_NAME,
-        input=query,
+        input=_with_language(query),
         agent_config={
             **_BASE_AGENT_CONFIG,
             "collaborative_planning": True,
@@ -80,7 +95,7 @@ def _sync_create_revision(previous_interaction_id: str, revision_text: str) -> s
     """
     interaction = _get_client().interactions.create(
         agent=AGENT_NAME,
-        input=revision_text,
+        input=_with_language(revision_text),
         agent_config={
             **_BASE_AGENT_CONFIG,
             "collaborative_planning": True,
@@ -98,7 +113,10 @@ def _sync_create_approval(previous_interaction_id: str) -> str:
     """
     interaction = _get_client().interactions.create(
         agent=AGENT_NAME,
-        input="Plan looks good, please proceed with the research.",
+        input=_with_language(
+            "Plan looks good, please proceed with the research. "
+            "Remember to write the final report in Hebrew."
+        ),
         agent_config={
             **_BASE_AGENT_CONFIG,
             "collaborative_planning": False,
