@@ -227,23 +227,48 @@ def _text_from_content_list(content_list: Any) -> str:
     return "\n\n".join(parts).strip()
 
 
+_SOURCES_HEADER_RE = re.compile(
+    r"\n\s*(?:#{1,6}\s*)?\**\s*"
+    r"(?:Sources|References|Citations|מקורות|הפניות|ביבליוגרפיה)"
+    r"\s*:?\**\s*\n",
+    re.IGNORECASE,
+)
+
+
+def _strip_sources_section(text: str) -> str:
+    """
+    חותך כל מה שמופיע אחרי כותרת 'Sources' (או מקבילה בעברית/אנגלית) בסוף הדו"ח.
+    שומר רק את גוף המחקר — בלי רשימת המקורות.
+    """
+    if not text:
+        return text
+    match = _SOURCES_HEADER_RE.search("\n" + text)
+    if match:
+        # match.start() נמדד על המחרוזת עם "\n" בהתחלה — מורידים 1
+        cut = max(match.start() - 1, 0)
+        return text[:cut].rstrip()
+    return text
+
+
 def _extract_output_text(interaction: Any) -> str:
     """
-    מחלץ את הטקסט הסופי מ-interaction שהושלם.
+    מחלץ את גוף הדו"ח מ-interaction שהושלם — בלי רשימת המקורות.
 
     סדר העדיפויות:
     1. interaction.outputs — ה-API הרשמי לפלט הסופי (Interactions API).
-    2. איחוד של כל ה-steps (לא רק האחרון) — fallback למקרה שאין outputs.
-       חשוב לאחד את כולם, כי הצעד האחרון לרוב מכיל רק את רשימת המקורות,
-       בעוד שגוף הדו"ח עצמו יושב בצעדים מוקדמים יותר.
+    2. איחוד steps פרט לאחרון — fallback. הצעד האחרון לרוב מכיל
+       רק את רשימת המקורות, וגוף הדו"ח יושב בצעדים מוקדמים יותר.
+
+    בכל מקרה — אם נשארה כותרת "Sources" בתוך הטקסט, חותכים שם.
     """
     try:
+        body = ""
+
         # 1. הדרך המועדפת: outputs
         outputs = getattr(interaction, "outputs", None)
         if outputs:
             text_parts = []
             for output in outputs:
-                # outputs[i].text או outputs[i].content[].text
                 direct_text = getattr(output, "text", None)
                 if direct_text:
                     text_parts.append(direct_text)
@@ -253,24 +278,26 @@ def _extract_output_text(interaction: Any) -> str:
                     combined = _text_from_content_list(content)
                     if combined:
                         text_parts.append(combined)
-            joined = "\n\n".join(p for p in text_parts if p).strip()
-            if joined:
-                return joined
+            body = "\n\n".join(p for p in text_parts if p).strip()
 
-        # 2. fallback: איחוד כל הצעדים
-        steps = getattr(interaction, "steps", None) or []
-        all_parts = []
-        for step in steps:
-            content = getattr(step, "content", None)
-            if content:
-                text = _text_from_content_list(content)
-                if text:
-                    all_parts.append(text)
-        joined = "\n\n".join(all_parts).strip()
-        if joined:
-            return joined
+        # 2. fallback: איחוד כל הצעדים פרט לאחרון
+        if not body:
+            steps = getattr(interaction, "steps", None) or []
+            steps_to_use = steps[:-1] if len(steps) > 1 else steps
+            all_parts = []
+            for step in steps_to_use:
+                content = getattr(step, "content", None)
+                if content:
+                    text = _text_from_content_list(content)
+                    if text:
+                        all_parts.append(text)
+            body = "\n\n".join(all_parts).strip()
 
-        return "[הדו\"ח הסתיים אך לא נמצא טקסט פלט]"
+        body = _strip_sources_section(body)
+
+        if not body:
+            return "[הדו\"ח הסתיים אך לא נמצא טקסט פלט]"
+        return body
     except (AttributeError, IndexError, KeyError, TypeError) as e:
         return f"[שגיאה בחילוץ טקסט: {e}]"
 
