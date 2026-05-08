@@ -38,14 +38,23 @@ def _get_client() -> genai.Client:
     """
     יוצר client בפעם הראשונה ושומר אותו ברמת המודול.
     Lazy init — לא מצריך init_db מקביל.
-    ה-client קורא את GEMINI_API_KEY מסביבת המערכת אוטומטית.
+
+    מעביר את ה-API key במפורש ל-Client. ה-SDK של google-genai
+    תומך בשני שמות סטנדרטיים: GEMINI_API_KEY ו-GOOGLE_API_KEY,
+    אבל בחלק מהגרסאות הוא קורא רק את אחד מהם אוטומטית — לכן
+    אנחנו קוראים את שניהם ידנית ומעבירים מפורש.
     """
     global _client
     if _client is None:
-        # ודא שה-API key קיים — מעלה שגיאה ברורה אם לא
-        if not os.environ.get("GEMINI_API_KEY"):
-            raise RuntimeError("GEMINI_API_KEY environment variable is not set")
-        _client = genai.Client()
+        api_key = (
+            os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+        )
+        if not api_key:
+            raise RuntimeError(
+                "GEMINI_API_KEY (or GOOGLE_API_KEY) environment variable is not set"
+            )
+        _client = genai.Client(api_key=api_key)
     return _client
 
 
